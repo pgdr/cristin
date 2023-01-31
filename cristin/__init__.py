@@ -26,7 +26,10 @@ class Contribution:
 
 
 def _csv_safe(val):
-    val = str(val)
+    val = str(val).strip()
+    while "\n" in val:
+        val = val.replace("\n", " ")
+        val = val.strip()
     if "," in val:
         return f'"{val}"'
     return val
@@ -46,7 +49,7 @@ def csv_contribution(contr):
                 contr._title,
                 contr._url,
                 contr._journal,
-                contr._contributors,
+                ", ".join([str_person(make_person(**c)) for c in contr._contributors]),
                 contr._result_id,
             ],
         )
@@ -139,11 +142,29 @@ def run_results(argument, csv=False):
             print("\n")
 
 
+def run_resultsby(argument, csv=False):
+    person = search_person(argument)
+    if len(person) != 1:
+        exit(f"Could not find unique person: {person}")
+    pid = person[0].cristin_person_id
+    retval = results(pid, 100)
+    if csv:
+        print(csv_header())
+    for res in sorted(retval, key=lambda x: x._year, reverse=True):
+        if csv:
+            print(csv_contribution(res))
+        else:
+            print_contribution(res)
+            print("\n")
+
+
 def run(command, argument, csv=False):
     if command == "person":
         run_person(argument)
     elif command == "results":
         run_results(argument, csv=csv)
+    elif command == "resultsby":
+        run_resultsby(argument, csv=csv)
     else:
         exit("Unknown command")
 
@@ -155,7 +176,7 @@ def main():
         sys.argv.remove("--csv")
     if len(sys.argv) < 2 or "-h" in sys.argv[1]:
         exit_with_usage()
-    if sys.argv[1] not in ("--person", "--results"):
+    if sys.argv[1] not in ("--person", "--results", "--resultsby"):
         print(f'Unknown command "{sys.argv[1]}"')
         exit_with_usage()
     command = sys.argv[1][2:]
