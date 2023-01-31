@@ -37,4 +37,4 @@ If you want to get a `csv` output, simply use `cristin --csv --results 1234 3`
 
 If you want to combine the two above, use
 
-`cristin resultsby firstname surname --csv`
+`cristin --resultsby firstname surname --csv`
