@@ -25,6 +25,34 @@ class Contribution:
         self._result_id = contr["cristin_result_id"]
 
 
+def _csv_safe(val):
+    val = str(val)
+    if "," in val:
+        return f'"{val}"'
+    return val
+
+
+def csv_header():
+    return "type,year,title,url,journal,contributors,result_id"
+
+
+def csv_contribution(contr):
+    return ",".join(
+        map(
+            _csv_safe,
+            [
+                contr._type,
+                contr._year,
+                contr._title,
+                contr._url,
+                contr._journal,
+                contr._contributors,
+                contr._result_id,
+            ],
+        )
+    )
+
+
 def make_person(first_name, surname, url=None, cristin_person_id=None):
     return Person(first_name, surname, url, cristin_person_id)
 
@@ -41,9 +69,13 @@ def str_person(person):
 Person.__str__ = str_person
 
 
-def results(person_id, institution=""):
-    per_page = 300
-    url = BASEURL + f"results?contributor={person_id}&per_page={per_page}"
+def results(person_id, per_page=None):
+    if per_page is None:
+        per_page = 10
+    url = (
+        BASEURL
+        + f"results?contributor={person_id}&per_page={per_page}&sort=year_published desc"
+    )
     for r in get(url):
         yield Contribution(r)
 
@@ -77,33 +109,58 @@ def print_contribution(contr):
 
 def exit_with_usage():
     print("Usage: cristin --person Firstname Surname")
-    print("Usage: cristin --person Firstname Surname @ UiB")
+    print("       cristin --person Firstname Surname @ UiB")
     print("       cristin --results cristin_person_id")
+    print("       cristin --results cristin_person_id [limit]", end="")
+    print(" # number of entries (default 10), e.g.")
+    print("       cristin --results cristin_person_id 100")
     sys.exit(1)
 
 
-def run(command, argument):
-    if command == "person":
-        institution = ""
-        if "@" in argument:
-            argument, institution = [s.strip() for s in argument.split("@")]
-        print(search_person(argument, institution=institution))
-    elif command == "results":
-        for res in sorted(results(argument), key=lambda x: x._year, reverse=True):
+def run_person(argument):
+    institution = ""
+    if "@" in argument:
+        argument, institution = [s.strip() for s in argument.split("@")]
+    print(search_person(argument, institution=institution))
+
+
+def run_results(argument, csv=False):
+    limit = None
+    if " " in argument.strip():
+        argument, limit = argument.strip().split()
+    retval = results(argument, limit)
+    if csv:
+        print(csv_header())
+    for res in sorted(retval, key=lambda x: x._year, reverse=True):
+        if csv:
+            print(csv_contribution(res))
+        else:
             print_contribution(res)
             print("\n")
+
+
+def run(command, argument, csv=False):
+    if command == "person":
+        run_person(argument)
+    elif command == "results":
+        run_results(argument, csv=csv)
     else:
         exit("Unknown command")
 
 
 def main():
-    if len(sys.argv) < 2:
+    csv = False
+    if "--csv" in sys.argv:
+        csv = True
+        sys.argv.remove("--csv")
+    if len(sys.argv) < 2 or "-h" in sys.argv[1]:
         exit_with_usage()
     if sys.argv[1] not in ("--person", "--results"):
+        print(f'Unknown command "{sys.argv[1]}"')
         exit_with_usage()
     command = sys.argv[1][2:]
     rest = " ".join(sys.argv[2:])
-    run(command, rest)
+    run(command, rest, csv=csv)
 
 
 if __name__ == "__main__":
