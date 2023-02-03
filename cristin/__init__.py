@@ -26,9 +26,11 @@ class Contribution:
 
 
 def _csv_safe(val):
+    _illegal = "\n\r"
     val = str(val).strip()
-    while "\n" in val:
+    while set(_illegal).intersection(set(val)):
         val = val.replace("\n", " ")
+        val = val.replace("\r", " ")
         val = val.strip()
     if "," in val:
         return f'"{val}"'
