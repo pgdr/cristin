@@ -56,7 +56,7 @@ setup(
     },
     license="MIT",
     keywords="cristin",
-    install_requires=["requests"],
+    install_requires=["requests", "pydantic"],
     entry_points={
         "console_scripts": [
             "cristin = cristin:main",

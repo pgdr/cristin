@@ -1,6 +1,8 @@
 import sys
 from collections import namedtuple as T
 import requests
+from pydantic import BaseModel
+from typing import Optional
 
 BASEURL = "https://api.cristin.no/v2/"
 
@@ -11,7 +13,19 @@ def get(what):
     return res.json()
 
 
-Person = T("Person", "first_name surname url cristin_person_id")
+class Person(BaseModel):
+    cristin_person_id: Optional[int] = None
+    first_name: str
+    surname: str
+    url: Optional[str] = None
+
+    def __str__(self):
+        name = self.first_name + " " + self.surname
+        if self.cristin_person_id:
+            name += f" ({self.cristin_person_id})"
+        if self.url:
+            name += f" [{self.url}]"
+        return name
 
 
 class Contribution:
@@ -51,27 +65,11 @@ def csv_contribution(contr):
                 contr._title,
                 contr._url,
                 contr._journal,
-                ", ".join([str_person(make_person(**c)) for c in contr._contributors]),
+                ", ".join([str(Person(**c)) for c in contr._contributors]),
                 contr._result_id,
             ],
         )
     )
-
-
-def make_person(first_name, surname, url=None, cristin_person_id=None):
-    return Person(first_name, surname, url, cristin_person_id)
-
-
-def str_person(person):
-    name = person.first_name + " " + person.surname
-    if person.cristin_person_id:
-        name += f" ({person.cristin_person_id})"
-    if person.url:
-        name += f" [{person.url}]"
-    return name
-
-
-Person.__str__ = str_person
 
 
 def results(person_id, per_page=None):
@@ -92,10 +90,10 @@ def search_person(name, institution=""):
     else:
         url = BASEURL + f"persons/?name={namestr}"
     res = get(url)
-    return [make_person(**p) for p in res]
+    return [Person(**p) for p in res]
 
 
-def person(cristin_person_id):
+def get_person(cristin_person_id):
     url = BASEURL + f"persons/{cristin_person_id}"
     return get(url)
 
@@ -106,9 +104,7 @@ def print_contribution(contr):
     print("Title        ", contr._title)
     print("URL          ", contr._url)
     print("Journal      ", contr._journal)
-    print(
-        "Contributors ", ", ".join([str(make_person(**c)) for c in contr._contributors])
-    )
+    print("Contributors ", ", ".join([str(Person(**c)) for c in contr._contributors]))
     print("result_id    ", contr._result_id)
 
 
@@ -126,7 +122,8 @@ def run_person(argument):
     institution = ""
     if "@" in argument:
         argument, institution = [s.strip() for s in argument.split("@")]
-    print(search_person(argument, institution=institution))
+    for p in search_person(argument, institution=institution):
+        print(p)
 
 
 def run_results(argument, csv=False):
